@@ -5,8 +5,9 @@ using System.IO;
 using UnityEditor;
 using UnityEditor.Animations;
 using UnityEngine;
+using VRC.SDK3.Avatars.Components;
+using VRC.SDK3.Avatars.ScriptableObjects;
 using VRC.SDK3.Components;
-using VRC.SDK3.ScriptableObjects;
 
 namespace Merlin
 {
@@ -25,7 +26,7 @@ namespace Merlin
         public bool advancedMode = false;
         public AnimatorController basisAnimator;
         public VRCExpressionsMenu basisMenu;
-        public VRCStageParameters basisStageParameters;
+        public VRCExpressionParameters basisStageParameters;
         public VRCAvatarDescriptor.AnimLayerType inventoryAnimLayer = VRCAvatarDescriptor.AnimLayerType.Gesture;
         public InventorySlot[] inventorySlots;
         public string descriptorGUID;
@@ -48,27 +49,30 @@ namespace Merlin
             }
 
             // Generate the stage parameters for the inventory toggles
-            VRCStageParameters inventoryStageParams;
+            VRCExpressionParameters inventoryStageParams;
             string stageParameterPath = $"{generatedDirPath}/customStageParams.asset";
 
             if (basisStageParameters != null)
             {
                 AssetDatabase.CopyAsset(AssetDatabase.GetAssetPath(basisStageParameters), stageParameterPath);
-                inventoryStageParams = AssetDatabase.LoadAssetAtPath<VRCStageParameters>(stageParameterPath);
+                inventoryStageParams = AssetDatabase.LoadAssetAtPath<VRCExpressionParameters>(stageParameterPath);
             }
             else
             {
-                inventoryStageParams = ScriptableObject.CreateInstance<VRCStageParameters>();
+                inventoryStageParams = ScriptableObject.CreateInstance<VRCExpressionParameters>();
                 AssetDatabase.CreateAsset(inventoryStageParams, $"{generatedDirPath}/customStageParams.asset");
             }
 
-            List<VRCStageParameters.Parameter> originalParams = new List<VRCStageParameters.Parameter>();
+            List<VRCExpressionParameters.Parameter> originalParams = new List<VRCExpressionParameters.Parameter>();
 
-            foreach (VRCStageParameters.Parameter param in inventoryStageParams.stageParameters)
+            if (inventoryStageParams.parameters != null)
             {
-                if (!string.IsNullOrEmpty(param.name))
+                foreach (VRCExpressionParameters.Parameter param in inventoryStageParams.parameters)
                 {
-                    originalParams.Add(new VRCStageParameters.Parameter() { name = param.name, valueType = param.valueType });
+                    if (!string.IsNullOrEmpty(param.name))
+                    {
+                        originalParams.Add(new VRCExpressionParameters.Parameter() { name = param.name, valueType = param.valueType });
+                    }
                 }
             }
             
@@ -78,16 +82,16 @@ namespace Merlin
                 return;
             }
 
-            VRCStageParameters.Parameter[] basisParameters = inventoryStageParams.stageParameters;
-            inventoryStageParams.stageParameters = new VRCStageParameters.Parameter[16];
+            VRCExpressionParameters.Parameter[] basisParameters = inventoryStageParams.parameters;
+            inventoryStageParams.parameters = new VRCExpressionParameters.Parameter[16];
 
-            for (int i = 0; i < originalParams.Count; ++i) inventoryStageParams.stageParameters[i] = originalParams[i];
+            for (int i = 0; i < originalParams.Count; ++i) inventoryStageParams.parameters[i] = originalParams[i];
 
             for (int i = originalParams.Count; i < inventorySlots.Length + originalParams.Count; ++i)
-                inventoryStageParams.stageParameters[i] = new VRCStageParameters.Parameter() { name = $"GenInventorySlot{i - originalParams.Count}", valueType = VRCStageParameters.Parameter.ValyeType.Int };
+                inventoryStageParams.parameters[i] = new VRCExpressionParameters.Parameter() { name = $"GenInventorySlot{i - originalParams.Count}", valueType = VRCExpressionParameters.ValueType.Int };
 
             for (int i = originalParams.Count + inventorySlots.Length; i < 16; ++i) // Clear out empty params
-                inventoryStageParams.stageParameters[i] = new VRCStageParameters.Parameter() { name = "", valueType = VRCStageParameters.Parameter.ValyeType.Float };
+                inventoryStageParams.parameters[i] = new VRCExpressionParameters.Parameter() { name = "", valueType = VRCExpressionParameters.ValueType.Float };
 
             // Generate menu asset
             VRCExpressionsMenu menuAsset;
@@ -102,8 +106,6 @@ namespace Merlin
                 menuAsset = ScriptableObject.CreateInstance<VRCExpressionsMenu>();
                 AssetDatabase.CreateAsset(menuAsset, menuPath);
             }
-
-            menuAsset.stageParameters = inventoryStageParams;
             
             for (int i = 0; i < inventorySlots.Length; ++i)
             {
@@ -210,6 +212,7 @@ namespace Merlin
             VRCAvatarDescriptor descriptor = GetComponent<VRCAvatarDescriptor>();
 
             descriptor.expressionsMenu = menuAsset;
+            descriptor.expressionParameters = inventoryStageParams;
 
             VRCAvatarDescriptor.CustomAnimLayer layer = new VRCAvatarDescriptor.CustomAnimLayer();
             layer.isDefault = false;
