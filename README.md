@@ -1,3 +1,5 @@
+# This repository is currently out of date and will not work with the current VRCSDK
+
 # VRC-Inventory
 Inventory system generator for Avatar 3.0
 
